@@ -1,6 +1,6 @@
 # Weather App Challenge
 
-You'll be using Typescript, Nuxt 3, Tailwind CSS, and Pinia to replicate the look and feel of the Apple Weather App. The app should fetch real-time weather data from [open-meteo](https://open-meteo.com/en/docs) based on the user’s location, or a location they search. It should feature a 7-day forecast and an hourly weather breakdown. We won't need maps and other widgets featured in the full version of the app. Bonus points for persistence, PWA functionality and dynamic UI elements that change based on weather conditions.
+You'll be using Typescript, Nuxt 3, Tailwind CSS, and Pinia to replicate the look and feel of the [Apple Weather App](https://github.com/OatsOvernight/coding-challenge-weather-app/blob/main/public/apple-weather.jpeg). The app should fetch real-time weather data from [open-meteo](https://open-meteo.com/en/docs) based on the user’s location, or a location they search. It should feature a 7-day forecast and an hourly weather breakdown. We won't need maps and other widgets featured in the full version of the app. Bonus points for persistence, PWA functionality and dynamic UI elements that change based on weather conditions.
 
 Estimated Time: 3-6 hours.
 
