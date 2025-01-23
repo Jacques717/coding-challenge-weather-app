@@ -4,7 +4,9 @@ You'll be using Typescript, Nuxt 3, Tailwind CSS, and Pinia to replicate the loo
 
 Estimated Time: 3-6 hours.
 
-This repository provides a boilerplate Nuxt app, ready for development.
+This repository provides a boilerplate Nuxt app, ready for development. Please fork this repository to get started!
+
+_There's no need to deploy the app!_
 
 ### Resources
 * [Nuxt](https://nuxt.com)
