@@ -15,5 +15,16 @@ export default defineNuxtConfig({
   },
   pinia: {
     storesDirs: [ './src/stores/**' ]
+  },
+  devServer: {
+    port: 3000
+  },
+  nitro: {
+    devProxy: {
+      '/api': {
+        target: 'http://localhost:3001', // assuming your Express server runs on 3001
+        changeOrigin: true
+      }
+    }
   }
 })
