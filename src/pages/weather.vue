@@ -228,8 +228,11 @@ async function fetchWeatherData(useRandom = false) {
     const coords = useRandom ? getRandomLocation() : await getLocation()
     cityName.value = await getCityName(coords.lat, coords.lon)
     
+    // Get local timezone
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone
+    
     const response = await fetch(
-      `http://localhost:3001/api/weather?latitude=${coords.lat}&longitude=${coords.lon}`
+      `http://localhost:3001/api/weather?latitude=${coords.lat}&longitude=${coords.lon}&timezone=${timezone}`
     )
     if (!response.ok) throw new Error('Failed to fetch weather data')
     
