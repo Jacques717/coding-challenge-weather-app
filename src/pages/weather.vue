@@ -37,10 +37,7 @@
         <div class="grid grid-cols-6 gap-4 text-center">
           <div v-for="(temp, index) in temperatures.slice(0, 6)" :key="index" class="space-y-2">
             <div class="text-sm font-medium">{{ index === 0 ? 'Now' : formatTime(times[index]) }}</div>
-            <div v-html="getWeatherIcon(weatherCodes[index])" 
-                 :class="{'text-yellow-300': weatherCodes[index] === 0, 'text-white': weatherCodes[index] !== 0}"
-                 class="mx-auto">
-            </div>
+            <div v-html="getWeatherIcon(weatherCodes[index])" class="mx-auto"></div>
             <div class="text-2xl font-light">{{ formatTemp(temp) }}°</div>
           </div>
         </div>
@@ -58,10 +55,7 @@
           <div v-for="(_, index) in dailyHighs" :key="index" 
                class="flex items-center">
             <span class="w-12 font-medium">{{ formatDay(dailyTimes[index]) }}</span>
-            <div v-html="getWeatherIcon(weatherCodes[index * 24])" 
-                 :class="{'text-yellow-300': weatherCodes[index * 24] === 0, 'text-white': weatherCodes[index * 24] !== 0}"
-                 class="mx-4">
-            </div>
+            <div v-html="getWeatherIcon(weatherCodes[index * 24])" class="mx-4"></div>
             <div class="flex-1 flex items-center gap-3">
               <span class="text-sm w-8">{{ formatTemp(dailyLows[index]) }}°</span>
               <div class="flex-1 h-1 rounded-full bg-blue-400/30 relative">
@@ -175,27 +169,13 @@ async function getCityName(lat: number, lon: number): Promise<string> {
          'Unknown Location'
 }
 
-// Add this weather icon mapping
+// Update the weather icons to use animated SVGs from Meteocons
 const weatherIcons = {
-  clear: `<svg class="w-8 h-8" stroke="currentColor" fill="none" viewBox="0 0 24 24" stroke-width="2">
-    <circle cx="12" cy="12" r="4"/>
-    <path d="M12 2v2m0 16v2M2 12h2m16 0h2M4.93 4.93l1.41 1.41m11.32 11.32l1.41 1.41M4.93 19.07l1.41-1.41M19.07 4.93l-1.41 1.41"/>
-  </svg>`,
-  cloudy: `<svg class="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
-    <path d="M4 11a7 7 0 0113.76-1.9A5 5 0 0124 14c0 2.76-2.24 5-5 5H5c-2.76 0-5-2.24-5-5 0-2.64 2.05-4.78 4.64-4.96C4.15 9.7 4 10.33 4 11z"/>
-  </svg>`,
-  rain: `<svg class="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
-    <path d="M4 11a7 7 0 0113.76-1.9A5 5 0 0124 14c0 2.76-2.24 5-5 5H5c-2.76 0-5-2.24-5-5 0-2.64 2.05-4.78 4.64-4.96C4.15 9.7 4 10.33 4 11z"/>
-    <path d="M7 19v2m4-1v2m4-1v2" stroke="currentColor" stroke-width="2" fill="none"/>
-  </svg>`,
-  snow: `<svg class="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
-    <path d="M4 11a7 7 0 0113.76-1.9A5 5 0 0124 14c0 2.76-2.24 5-5 5H5c-2.76 0-5-2.24-5-5 0-2.64 2.05-4.78 4.64-4.96C4.15 9.7 4 10.33 4 11z"/>
-    <path d="M8 17h.01M12 17h.01M16 17h.01" stroke="currentColor" stroke-width="2" fill="none"/>
-  </svg>`,
-  thunderstorm: `<svg class="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
-    <path d="M4 11a7 7 0 0113.76-1.9A5 5 0 0124 14c0 2.76-2.24 5-5 5H5c-2.76 0-5-2.24-5-5 0-2.64 2.05-4.78 4.64-4.96C4.15 9.7 4 10.33 4 11z"/>
-    <path d="M13 12l-3 5h4l-3 5" stroke="currentColor" stroke-width="2" fill="none"/>
-  </svg>`
+  clear: `<img src="https://bmcdn.nl/assets/weather-icons/v3.0/fill/svg/clear-day.svg" class="w-8 h-8" />`,
+  cloudy: `<img src="https://bmcdn.nl/assets/weather-icons/v3.0/fill/svg/cloudy.svg" class="w-8 h-8" />`,
+  rain: `<img src="https://bmcdn.nl/assets/weather-icons/v3.0/fill/svg/rain.svg" class="w-8 h-8" />`,
+  snow: `<img src="https://bmcdn.nl/assets/weather-icons/v3.0/fill/svg/snow.svg" class="w-8 h-8" />`,
+  thunderstorm: `<img src="https://bmcdn.nl/assets/weather-icons/v3.0/fill/svg/thunderstorms-rain.svg" class="w-8 h-8" />`
 }
 
 // Add this helper function
