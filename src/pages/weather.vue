@@ -21,7 +21,8 @@
 
       <!-- Current Weather -->
       <div class="text-center mb-12">
-        <h1 class="text-2xl mb-2">{{ cityName }}</h1>
+        <h1 class="text-2xl mb-1">{{ cityName }}</h1>
+        <div class="text-sm text-blue-100 mb-4 opacity-80">{{ locationDetail }}</div>
         <div class="text-8xl font-light mb-4">{{ formatTemp(temperatures[0]) }}°</div>
         <div class="text-xl">
           Feels Like: {{ formatTemp(temperatures[0]) }}°
@@ -97,6 +98,11 @@ const weatherCodes = ref<number[]>([])
 const dailyHighs = ref<number[]>([])
 const dailyLows = ref<number[]>([])
 const dailyTimes = ref<string[]>([])
+const locationDetail = ref('')
+
+// Add a retry counter
+let retryCount = 0;
+const MAX_RETRIES = 3;
 
 // Add this function to get random coordinates
 function getRandomLocation() {
@@ -157,7 +163,14 @@ async function getCityName(lat: number, lon: number): Promise<string> {
     }
   )
   const data = await response.json()
-  console.log('Location data:', data.address) // For debugging
+  console.log('Location data:', data)
+  
+  // Set detailed location
+  locationDetail.value = data.display_name
+    .split(', ')
+    .slice(1) // Remove the city name since it's shown above
+    .join(', ')
+  
   return data.address.city || 
          data.address.town || 
          data.address.village || 
@@ -196,14 +209,30 @@ function getWeatherIcon(code: number): string {
   }
 }
 
-// Update fetchWeatherData to accept optional coordinates
+// Update fetchWeatherData to handle retries
 async function fetchWeatherData(useRandom = false) {
   try {
     loading.value = true
     error.value = null
     
     const coords = useRandom ? getRandomLocation() : await getLocation()
-    cityName.value = await getCityName(coords.lat, coords.lon)
+    
+    try {
+      cityName.value = await getCityName(coords.lat, coords.lon)
+    } catch (geocodeError) {
+      // If we get a geocoding error and we're using random coordinates
+      if (useRandom && retryCount < MAX_RETRIES) {
+        retryCount++;
+        console.log(`Retry attempt ${retryCount} of ${MAX_RETRIES}`);
+        return fetchWeatherData(true); // Try again with new random coordinates
+      } else {
+        retryCount = 0; // Reset counter
+        throw new Error('Could not find a valid location. Please try again.');
+      }
+    }
+    
+    // Reset retry counter on success
+    retryCount = 0;
     
     // Get local timezone
     const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone
@@ -260,12 +289,13 @@ onMounted(async () => {
     dailyLows.value = data.dailyLows
     dailyTimes.value = data.dailyTimes
     cityName.value = data.cityName
+    locationDetail.value = data.locationDetail
   }
   await fetchWeatherData()
 })
 
 // Save data when it changes
-watch([temperatures, times, weatherCodes, dailyHighs, dailyLows, dailyTimes, cityName], () => {
+watch([temperatures, times, weatherCodes, dailyHighs, dailyLows, dailyTimes, cityName, locationDetail], () => {
   localStorage.setItem(STORAGE_KEY, JSON.stringify({
     temperatures: temperatures.value,
     times: times.value,
@@ -273,7 +303,8 @@ watch([temperatures, times, weatherCodes, dailyHighs, dailyLows, dailyTimes, cit
     dailyHighs: dailyHighs.value,
     dailyLows: dailyLows.value,
     dailyTimes: dailyTimes.value,
-    cityName: cityName.value
+    cityName: cityName.value,
+    locationDetail: locationDetail.value
   }))
 }, { deep: true })
 </script> 
