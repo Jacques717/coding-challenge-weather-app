@@ -81,7 +81,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 
 definePageMeta({
   name: 'weather'
@@ -248,7 +248,35 @@ function getTempPercent(temp: number, dayIndex: number): number {
   return Math.round(((temp - min) / range) * 100)
 }
 
-onMounted(() => {
-  fetchWeatherData()
+// Add local storage functionality
+const STORAGE_KEY = 'weather-app-data'
+
+// Load saved data on mount
+onMounted(async () => {
+  const saved = localStorage.getItem(STORAGE_KEY)
+  if (saved) {
+    const data = JSON.parse(saved)
+    temperatures.value = data.temperatures
+    times.value = data.times
+    weatherCodes.value = data.weatherCodes
+    dailyHighs.value = data.dailyHighs
+    dailyLows.value = data.dailyLows
+    dailyTimes.value = data.dailyTimes
+    cityName.value = data.cityName
+  }
+  await fetchWeatherData()
 })
+
+// Save data when it changes
+watch([temperatures, times, weatherCodes, dailyHighs, dailyLows, dailyTimes, cityName], () => {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({
+    temperatures: temperatures.value,
+    times: times.value,
+    weatherCodes: weatherCodes.value,
+    dailyHighs: dailyHighs.value,
+    dailyLows: dailyLows.value,
+    dailyTimes: dailyTimes.value,
+    cityName: cityName.value
+  }))
+}, { deep: true })
 </script> 
