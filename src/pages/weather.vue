@@ -1,15 +1,34 @@
 <template>
   <div class="min-h-screen bg-gradient-to-b from-blue-400 to-blue-600 p-6 text-white">
-    <div class="max-w-md mx-auto">
+    <div class="max-w-md mx-auto relative">
+      <!-- Add temperature toggle button -->
+      <button 
+        @click="isCelsius = !isCelsius"
+        class="absolute top-0 left-0 bg-white/20 hover:bg-white/30 rounded-full p-2 transition-colors"
+      >
+        {{ isCelsius ? '°C' : '°F' }}
+      </button>
+
+      <!-- Add this button at the top -->
+      <button 
+        @click="fetchWeatherData(true)"
+        class="absolute top-0 right-0 bg-white/20 hover:bg-white/30 rounded-full p-2 transition-colors"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
+      </button>
+
       <!-- Current Weather -->
       <div class="text-center mb-12">
         <h1 class="text-2xl mb-2">{{ cityName }}</h1>
-        <div class="text-8xl font-light mb-4">{{ temperatures[0] }}°</div>
+        <div class="text-8xl font-light mb-4">{{ formatTemp(temperatures[0]) }}°</div>
         <div class="text-xl">
-          Feels Like: {{ temperatures[0] }}°
+          Feels Like: {{ formatTemp(temperatures[0]) }}°
         </div>
         <div class="text-lg">
-          H:{{ Math.max(...temperatures) }}° L:{{ Math.min(...temperatures) }}°
+          H:{{ formatTemp(Math.max(...temperatures)) }}° 
+          L:{{ formatTemp(Math.min(...temperatures)) }}°
         </div>
       </div>
 
@@ -18,7 +37,7 @@
         <div class="grid grid-cols-6 gap-4 text-center">
           <div v-for="(temp, index) in temperatures.slice(0, 6)" :key="index" class="space-y-2">
             <div class="text-sm">{{ formatTime(times[index]) }}</div>
-            <div class="text-xl">{{ temp }}°</div>
+            <div class="text-xl">{{ formatTemp(temp) }}°</div>
           </div>
         </div>
       </div>
@@ -30,7 +49,7 @@
           <div v-for="(temp, index) in temperatures.slice(0, 10)" :key="index" 
                class="flex items-center justify-between">
             <span>{{ formatDay(times[index]) }}</span>
-            <span>{{ temp }}°</span>
+            <span>{{ formatTemp(temp) }}°</span>
           </div>
         </div>
       </div>
@@ -58,6 +77,25 @@ const error = ref<string | null>(null)
 const temperatures = ref<number[]>([])
 const times = ref<string[]>([])
 const cityName = ref('Loading...')
+const isCelsius = ref(true)
+
+// Add this array of major cities with their coordinates
+const worldCities = [
+  { name: 'Tokyo', lat: 35.6762, lon: 139.6503 },
+  { name: 'Paris', lat: 48.8566, lon: 2.3522 },
+  { name: 'New York', lat: 40.7128, lon: -74.0060 },
+  { name: 'Sydney', lat: -33.8688, lon: 151.2093 },
+  { name: 'Rio', lat: -22.9068, lon: -43.1729 },
+  { name: 'Cape Town', lat: -33.9249, lon: 18.4241 },
+  { name: 'Dubai', lat: 25.2048, lon: 55.2708 },
+  { name: 'Singapore', lat: 1.3521, lon: 103.8198 }
+]
+
+// Add this function to get random coordinates
+function getRandomLocation() {
+  const randomCity = worldCities[Math.floor(Math.random() * worldCities.length)]
+  return { lat: randomCity.lat, lon: randomCity.lon }
+}
 
 async function getLocation(): Promise<{lat: number, lon: number}> {
   return new Promise((resolve, reject) => {
@@ -112,12 +150,13 @@ async function getCityName(lat: number, lon: number): Promise<string> {
          'Unknown Location'
 }
 
-async function fetchWeatherData() {
+// Update fetchWeatherData to accept optional coordinates
+async function fetchWeatherData(useRandom = false) {
   try {
     loading.value = true
     error.value = null
     
-    const coords = await getLocation()
+    const coords = useRandom ? getRandomLocation() : await getLocation()
     cityName.value = await getCityName(coords.lat, coords.lon)
     
     const response = await fetch(
@@ -134,6 +173,14 @@ async function fetchWeatherData() {
   } finally {
     loading.value = false
   }
+}
+
+function convertToFahrenheit(celsius: number): number {
+  return Math.round((celsius * 9/5) + 32)
+}
+
+function formatTemp(temp: number): number {
+  return isCelsius.value ? Math.round(temp) : convertToFahrenheit(temp)
 }
 
 onMounted(() => {
