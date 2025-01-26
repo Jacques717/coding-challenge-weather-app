@@ -98,22 +98,19 @@ const dailyHighs = ref<number[]>([])
 const dailyLows = ref<number[]>([])
 const dailyTimes = ref<string[]>([])
 
-// Add this array of major cities with their coordinates
-const worldCities = [
-  { name: 'Tokyo', lat: 35.6762, lon: 139.6503 },
-  { name: 'Paris', lat: 48.8566, lon: 2.3522 },
-  { name: 'New York', lat: 40.7128, lon: -74.0060 },
-  { name: 'Sydney', lat: -33.8688, lon: 151.2093 },
-  { name: 'Rio', lat: -22.9068, lon: -43.1729 },
-  { name: 'Cape Town', lat: -33.9249, lon: 18.4241 },
-  { name: 'Dubai', lat: 25.2048, lon: 55.2708 },
-  { name: 'Singapore', lat: 1.3521, lon: 103.8198 }
-]
-
 // Add this function to get random coordinates
 function getRandomLocation() {
-  const randomCity = worldCities[Math.floor(Math.random() * worldCities.length)]
-  return { lat: randomCity.lat, lon: randomCity.lon }
+  // Generate random latitude between -60 and 70 (most inhabited areas)
+  const lat = Math.random() * 130 - 60;  // -60 to 70
+  
+  // Generate random longitude between -180 and 180
+  const lon = Math.random() * 360 - 180;  // -180 to 180
+  
+  // Round to 4 decimal places for reasonable precision
+  return {
+    lat: Math.round(lat * 10000) / 10000,
+    lon: Math.round(lon * 10000) / 10000
+  }
 }
 
 async function getLocation(): Promise<{lat: number, lon: number}> {
