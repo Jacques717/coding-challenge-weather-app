@@ -20,7 +20,9 @@ app.get('/api/weather', async (req: Request, res: Response) => {
             params: {
                 latitude: req.query.latitude,
                 longitude: req.query.longitude,
-                hourly: 'temperature_2m'
+                hourly: ['temperature_2m', 'weathercode'],
+                daily: ['temperature_2m_max', 'temperature_2m_min'],
+                timezone: 'auto'
             }
         });
         res.json(response.data);

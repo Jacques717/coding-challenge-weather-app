@@ -36,20 +36,41 @@
       <div class="bg-blue-500/30 backdrop-blur-sm rounded-3xl p-6 mb-6">
         <div class="grid grid-cols-6 gap-4 text-center">
           <div v-for="(temp, index) in temperatures.slice(0, 6)" :key="index" class="space-y-2">
-            <div class="text-sm">{{ formatTime(times[index]) }}</div>
-            <div class="text-xl">{{ formatTemp(temp) }}°</div>
+            <div class="text-sm font-medium">{{ index === 0 ? 'Now' : formatTime(times[index]) }}</div>
+            <div v-html="getWeatherIcon(weatherCodes[index])" 
+                 :class="{'text-yellow-300': weatherCodes[index] === 0, 'text-white': weatherCodes[index] !== 0}"
+                 class="mx-auto">
+            </div>
+            <div class="text-2xl font-light">{{ formatTemp(temp) }}°</div>
           </div>
         </div>
       </div>
 
       <!-- Daily Forecast -->
       <div class="bg-blue-500/30 backdrop-blur-sm rounded-3xl p-6">
-        <h2 class="text-xl mb-4">10-Day Forecast</h2>
+        <h2 class="text-xl mb-4 flex items-center gap-2">
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M19 4h-2V3a1 1 0 00-2 0v1H9V3a1 1 0 00-2 0v1H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V6a2 2 0 00-2-2zm0 16H5V8h14v12z"/>
+          </svg>
+          10-DAY FORECAST
+        </h2>
         <div class="space-y-4">
-          <div v-for="(temp, index) in temperatures.slice(0, 10)" :key="index" 
-               class="flex items-center justify-between">
-            <span>{{ formatDay(times[index]) }}</span>
-            <span>{{ formatTemp(temp) }}°</span>
+          <div v-for="(_, index) in dailyHighs" :key="index" 
+               class="flex items-center">
+            <span class="w-12 font-medium">{{ formatDay(dailyTimes[index]) }}</span>
+            <div v-html="getWeatherIcon(weatherCodes[index * 24])" 
+                 :class="{'text-yellow-300': weatherCodes[index * 24] === 0, 'text-white': weatherCodes[index * 24] !== 0}"
+                 class="mx-4">
+            </div>
+            <div class="flex-1 flex items-center gap-3">
+              <span class="text-sm w-8">{{ formatTemp(dailyLows[index]) }}°</span>
+              <div class="flex-1 h-1 rounded-full bg-blue-400/30 relative">
+                <div class="absolute h-1 bg-white rounded-full"
+                     :style="`left: ${getTempPercent(dailyLows[index], index)}%; right: ${100 - getTempPercent(dailyHighs[index], index)}%`">
+                </div>
+              </div>
+              <span class="text-sm w-8">{{ formatTemp(dailyHighs[index]) }}°</span>
+            </div>
           </div>
         </div>
       </div>
@@ -78,6 +99,10 @@ const temperatures = ref<number[]>([])
 const times = ref<string[]>([])
 const cityName = ref('Loading...')
 const isCelsius = ref(true)
+const weatherCodes = ref<number[]>([])
+const dailyHighs = ref<number[]>([])
+const dailyLows = ref<number[]>([])
+const dailyTimes = ref<string[]>([])
 
 // Add this array of major cities with their coordinates
 const worldCities = [
@@ -150,6 +175,50 @@ async function getCityName(lat: number, lon: number): Promise<string> {
          'Unknown Location'
 }
 
+// Add this weather icon mapping
+const weatherIcons = {
+  clear: `<svg class="w-8 h-8" stroke="currentColor" fill="none" viewBox="0 0 24 24" stroke-width="2">
+    <circle cx="12" cy="12" r="4"/>
+    <path d="M12 2v2m0 16v2M2 12h2m16 0h2M4.93 4.93l1.41 1.41m11.32 11.32l1.41 1.41M4.93 19.07l1.41-1.41M19.07 4.93l-1.41 1.41"/>
+  </svg>`,
+  cloudy: `<svg class="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
+    <path d="M4 11a7 7 0 0113.76-1.9A5 5 0 0124 14c0 2.76-2.24 5-5 5H5c-2.76 0-5-2.24-5-5 0-2.64 2.05-4.78 4.64-4.96C4.15 9.7 4 10.33 4 11z"/>
+  </svg>`,
+  rain: `<svg class="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
+    <path d="M4 11a7 7 0 0113.76-1.9A5 5 0 0124 14c0 2.76-2.24 5-5 5H5c-2.76 0-5-2.24-5-5 0-2.64 2.05-4.78 4.64-4.96C4.15 9.7 4 10.33 4 11z"/>
+    <path d="M7 19v2m4-1v2m4-1v2" stroke="currentColor" stroke-width="2" fill="none"/>
+  </svg>`,
+  snow: `<svg class="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
+    <path d="M4 11a7 7 0 0113.76-1.9A5 5 0 0124 14c0 2.76-2.24 5-5 5H5c-2.76 0-5-2.24-5-5 0-2.64 2.05-4.78 4.64-4.96C4.15 9.7 4 10.33 4 11z"/>
+    <path d="M8 17h.01M12 17h.01M16 17h.01" stroke="currentColor" stroke-width="2" fill="none"/>
+  </svg>`,
+  thunderstorm: `<svg class="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
+    <path d="M4 11a7 7 0 0113.76-1.9A5 5 0 0124 14c0 2.76-2.24 5-5 5H5c-2.76 0-5-2.24-5-5 0-2.64 2.05-4.78 4.64-4.96C4.15 9.7 4 10.33 4 11z"/>
+    <path d="M13 12l-3 5h4l-3 5" stroke="currentColor" stroke-width="2" fill="none"/>
+  </svg>`
+}
+
+// Add this helper function
+function getWeatherIcon(code: number): string {
+  // WMO Weather interpretation codes
+  switch (true) {
+    case code === 0: // Clear sky
+      return weatherIcons.clear
+    case code >= 1 && code <= 3: // Partly cloudy
+      return weatherIcons.cloudy
+    case code >= 51 && code <= 67: // Drizzle and Rain
+    case code >= 80 && code <= 82: // Rain showers
+      return weatherIcons.rain
+    case code >= 71 && code <= 77: // Snow
+    case code >= 85 && code <= 86: // Snow showers
+      return weatherIcons.snow
+    case code >= 95 && code <= 99: // Thunderstorm
+      return weatherIcons.thunderstorm
+    default: // Cloudy, fog, etc
+      return weatherIcons.cloudy
+  }
+}
+
 // Update fetchWeatherData to accept optional coordinates
 async function fetchWeatherData(useRandom = false) {
   try {
@@ -167,6 +236,10 @@ async function fetchWeatherData(useRandom = false) {
     const data = await response.json()
     temperatures.value = data.hourly.temperature_2m
     times.value = data.hourly.time
+    weatherCodes.value = data.hourly.weathercode
+    dailyHighs.value = data.daily.temperature_2m_max
+    dailyLows.value = data.daily.temperature_2m_min
+    dailyTimes.value = data.daily.time
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Error loading weather data'
     console.error(err)
@@ -181,6 +254,15 @@ function convertToFahrenheit(celsius: number): number {
 
 function formatTemp(temp: number): number {
   return isCelsius.value ? Math.round(temp) : convertToFahrenheit(temp)
+}
+
+// Add this function to calculate temperature percentage for the scale
+function getTempPercent(temp: number, dayIndex: number): number {
+  const allTemps = [...dailyLows.value, ...dailyHighs.value]
+  const min = Math.min(...allTemps)
+  const max = Math.max(...allTemps)
+  const range = max - min
+  return Math.round(((temp - min) / range) * 100)
 }
 
 onMounted(() => {
