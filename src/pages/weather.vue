@@ -23,6 +23,17 @@
       <div class="text-center mb-12">
         <h1 class="text-2xl mb-1">{{ cityName }}</h1>
         <div class="text-sm text-blue-100 mb-4 opacity-80">{{ locationDetail }}</div>
+        
+        <!-- Location image -->
+        <div v-if="locationImageUrl" class="relative mb-6 rounded-2xl overflow-hidden shadow-lg">
+          <img 
+            :src="locationImageUrl" 
+            :alt="cityName"
+            class="w-full h-[200px] object-cover"
+          />
+          <div class="absolute inset-0 bg-gradient-to-b from-transparent to-black/30"></div>
+        </div>
+
         <div class="text-8xl font-light mb-4">{{ formatTemp(temperatures[0]) }}°</div>
         <div class="text-xl">
           Feels Like: {{ formatTemp(temperatures[0]) }}°
@@ -99,6 +110,7 @@ const dailyHighs = ref<number[]>([])
 const dailyLows = ref<number[]>([])
 const dailyTimes = ref<string[]>([])
 const locationDetail = ref('')
+const locationImageUrl = ref('')
 
 // Add a retry counter
 let retryCount = 0;
@@ -153,6 +165,40 @@ function formatDay(timeString: string): string {
   })
 }
 
+async function fetchLocationImage(location: string) {
+  try {
+    // First search for the Wikipedia page
+    const searchResponse = await fetch(
+      `https://en.wikipedia.org/w/api.php?` + 
+      `action=query&format=json&origin=*&list=search&srsearch=${encodeURIComponent(location)}`
+    )
+    const searchData = await searchResponse.json()
+    
+    if (searchData.query.search.length > 0) {
+      const pageId = searchData.query.search[0].pageid
+      
+      // Then get the page images
+      const imageResponse = await fetch(
+        `https://en.wikipedia.org/w/api.php?` +
+        `action=query&format=json&origin=*&prop=pageimages&pithumbsize=500&pageids=${pageId}`
+      )
+      const imageData = await imageResponse.json()
+      
+      const page = imageData.query.pages[pageId]
+      if (page.thumbnail) {
+        locationImageUrl.value = page.thumbnail.source
+      } else {
+        // Try with region if city image not found
+        const region = locationDetail.value.split(',')[0]
+        await fetchLocationImage(region)
+      }
+    }
+  } catch (error) {
+    console.error('Failed to fetch location image:', error)
+    locationImageUrl.value = ''
+  }
+}
+
 async function getCityName(lat: number, lon: number): Promise<string> {
   const response = await fetch(
     `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`,
@@ -163,20 +209,23 @@ async function getCityName(lat: number, lon: number): Promise<string> {
     }
   )
   const data = await response.json()
-  console.log('Location data:', data)
   
-  // Set detailed location
   locationDetail.value = data.display_name
     .split(', ')
-    .slice(1) // Remove the city name since it's shown above
+    .slice(1)
     .join(', ')
   
-  return data.address.city || 
-         data.address.town || 
-         data.address.village || 
-         data.address.county ||
-         data.address.municipality ||
-         'Unknown Location'
+  const cityName = data.address.city || 
+                  data.address.town || 
+                  data.address.village || 
+                  data.address.county ||
+                  data.address.municipality ||
+                  'Unknown Location'
+  
+  // Fetch image for the location
+  await fetchLocationImage(cityName + ' ' + data.address.country)
+  
+  return cityName
 }
 
 // Update the weather icons to use animated SVGs from Meteocons
