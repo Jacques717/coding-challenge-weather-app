@@ -3,7 +3,7 @@
     <div class="max-w-md mx-auto">
       <!-- Current Weather -->
       <div class="text-center mb-12">
-        <h1 class="text-2xl mb-2">Seattle</h1>
+        <h1 class="text-2xl mb-2">{{ cityName }}</h1>
         <div class="text-8xl font-light mb-4">{{ temperatures[0] }}°</div>
         <div class="text-xl">
           Feels Like: {{ temperatures[0] }}°
@@ -57,10 +57,28 @@ const loading = ref(true)
 const error = ref<string | null>(null)
 const temperatures = ref<number[]>([])
 const times = ref<string[]>([])
+const cityName = ref('Loading...')
 
-// Seattle coordinates
-const DEFAULT_LAT = 47.6062
-const DEFAULT_LON = -122.3321
+async function getLocation(): Promise<{lat: number, lon: number}> {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject('Geolocation is not supported')
+      return
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        resolve({
+          lat: position.coords.latitude,
+          lon: position.coords.longitude
+        })
+      },
+      (err) => {
+        reject('Please enable location access')
+      }
+    )
+  })
+}
 
 function formatTime(timeString: string): string {
   return new Date(timeString).toLocaleTimeString('en-US', {
@@ -75,19 +93,43 @@ function formatDay(timeString: string): string {
   })
 }
 
+async function getCityName(lat: number, lon: number): Promise<string> {
+  const response = await fetch(
+    `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`,
+    {
+      headers: {
+        'User-Agent': 'WeatherApp/1.0'
+      }
+    }
+  )
+  const data = await response.json()
+  console.log('Location data:', data.address) // For debugging
+  return data.address.city || 
+         data.address.town || 
+         data.address.village || 
+         data.address.county ||
+         data.address.municipality ||
+         'Unknown Location'
+}
+
 async function fetchWeatherData() {
   try {
     loading.value = true
     error.value = null
     
-    const response = await fetch(`http://localhost:3001/api/weather?latitude=${DEFAULT_LAT}&longitude=${DEFAULT_LON}`)
+    const coords = await getLocation()
+    cityName.value = await getCityName(coords.lat, coords.lon)
+    
+    const response = await fetch(
+      `http://localhost:3001/api/weather?latitude=${coords.lat}&longitude=${coords.lon}`
+    )
     if (!response.ok) throw new Error('Failed to fetch weather data')
     
     const data = await response.json()
     temperatures.value = data.hourly.temperature_2m
     times.value = data.hourly.time
   } catch (err) {
-    error.value = 'Error loading weather data'
+    error.value = err instanceof Error ? err.message : 'Error loading weather data'
     console.error(err)
   } finally {
     loading.value = false
