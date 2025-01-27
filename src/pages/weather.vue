@@ -341,17 +341,15 @@ function getCurrentHourIndex(timeArray: string[]): number {
   })
 }
 
-// Update fetchWeatherData to slice data from current hour
+// Update fetchWeatherData to properly handle retries
 async function fetchWeatherData(useRandom = false) {
   try {
     loading.value = true
     if (useRandom) loadingRandom.value = true
     error.value = null
     
-    // Create a minimum loading time of 1 second
     const minimumLoadingTime = delay(1000)
     
-    // Fetch data
     const fetchDataPromise = (async () => {
       const coords = useRandom ? getRandomLocation() : await getLocation()
       
@@ -361,7 +359,10 @@ async function fetchWeatherData(useRandom = false) {
         if (useRandom && retryCount < MAX_RETRIES) {
           retryCount++;
           console.log(`Retry attempt ${retryCount} of ${MAX_RETRIES}`);
-          return fetchWeatherData(true);
+          loading.value = false
+          loadingRandom.value = false
+          // Return the result of the retry instead of calling fetchWeatherData directly
+          return await fetchWeatherData(true);
         } else {
           retryCount = 0;
           throw new Error('Could not find a valid location. Please try again.');
@@ -376,24 +377,30 @@ async function fetchWeatherData(useRandom = false) {
       )
       if (!response.ok) throw new Error('Failed to fetch weather data')
       
-      return await response.json()
+      const data = await response.json()
+      // Validate that we have the required data
+      if (!data?.hourly?.time || !data?.hourly?.temperature_2m || !data?.hourly?.weathercode) {
+        throw new Error('Invalid weather data received');
+      }
+      
+      return data
     })()
 
     // Wait for both the minimum loading time and data fetch to complete
     const [data] = await Promise.all([fetchDataPromise, minimumLoadingTime])
     
-    // Find current hour index
-    const currentHourIndex = getCurrentHourIndex(data.hourly.time)
-    
-    // Slice arrays to start from current hour
-    temperatures.value = data.hourly.temperature_2m.slice(currentHourIndex)
-    times.value = data.hourly.time.slice(currentHourIndex)
-    weatherCodes.value = data.hourly.weathercode.slice(currentHourIndex)
-    
-    // Daily data doesn't need to be sliced
-    dailyHighs.value = data.daily.temperature_2m_max
-    dailyLows.value = data.daily.temperature_2m_min
-    dailyTimes.value = data.daily.time
+    // Only proceed if we have valid data
+    if (data && data.hourly) {
+      const currentHourIndex = getCurrentHourIndex(data.hourly.time)
+      
+      temperatures.value = data.hourly.temperature_2m.slice(currentHourIndex)
+      times.value = data.hourly.time.slice(currentHourIndex)
+      weatherCodes.value = data.hourly.weathercode.slice(currentHourIndex)
+      
+      dailyHighs.value = data.daily.temperature_2m_max
+      dailyLows.value = data.daily.temperature_2m_min
+      dailyTimes.value = data.daily.time
+    }
     
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Error loading weather data'
