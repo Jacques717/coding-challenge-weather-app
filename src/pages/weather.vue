@@ -78,6 +78,17 @@
         </svg>
       </button>
 
+      <!-- Manual coordinate input button -->
+      <button 
+        @click="showCoordInput = true"
+        class="absolute top-0 right-14 bg-white/20 hover:bg-white/30 rounded-full p-2 transition-colors"
+        title="Enter coordinates manually"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+        </svg>
+      </button>
+
       <!-- Current Weather -->
       <div class="text-center mb-12">
         <h1 class="text-2xl mb-1">{{ cityName }}</h1>
@@ -154,11 +165,55 @@
         </div>
       </div>
     </div>
+
+    <!-- Coordinate input modal -->
+    <div v-if="showCoordInput" class="fixed inset-0 bg-black/50 flex items-center justify-center p-4">
+      <div class="bg-white text-gray-900 rounded-2xl p-6 max-w-sm w-full">
+        <h3 class="text-xl font-semibold mb-4">Enter Coordinates</h3>
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Latitude</label>
+            <input 
+              v-model="manualLat"
+              type="number" 
+              step="any"
+              placeholder="-90 to 90"
+              class="w-full px-3 py-2 border rounded-lg"
+            />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Longitude</label>
+            <input 
+              v-model="manualLon"
+              type="number"
+              step="any"
+              placeholder="-180 to 180"
+              class="w-full px-3 py-2 border rounded-lg"
+            />
+          </div>
+          <div class="flex gap-3 mt-6">
+            <button 
+              @click="submitCoordinates"
+              class="flex-1 bg-blue-500 text-white py-2 px-4 rounded-lg hover:bg-blue-600 transition-colors"
+              :disabled="!isValidCoords"
+            >
+              Submit
+            </button>
+            <button 
+              @click="showCoordInput = false"
+              class="flex-1 bg-gray-200 text-gray-800 py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, watch, computed } from 'vue'
 
 definePageMeta({
   name: 'weather'
@@ -183,6 +238,20 @@ const MAX_RETRIES = 3;
 
 // Add new ref for random loading state
 const loadingRandom = ref(false)
+
+// Add these refs
+const showCoordInput = ref(false)
+const manualLat = ref('')
+const manualLon = ref('')
+
+// Add computed property for validation
+const isValidCoords = computed(() => {
+  const lat = Number(manualLat.value)
+  const lon = Number(manualLon.value)
+  return !isNaN(lat) && !isNaN(lon) && 
+         lat >= -90 && lat <= 90 && 
+         lon >= -180 && lon <= 180
+})
 
 // Add this function to get random coordinates
 function getRandomLocation() {
@@ -342,7 +411,7 @@ function getCurrentHourIndex(timeArray: string[]): number {
 }
 
 // Update fetchWeatherData to properly handle retries
-async function fetchWeatherData(useRandom = false) {
+async function fetchWeatherData(useRandom = false, manualCoords?: {lat: number, lon: number}) {
   try {
     loading.value = true
     if (useRandom) loadingRandom.value = true
@@ -351,7 +420,7 @@ async function fetchWeatherData(useRandom = false) {
     const minimumLoadingTime = delay(1000)
     
     const fetchDataPromise = (async () => {
-      const coords = useRandom ? getRandomLocation() : await getLocation()
+      const coords = manualCoords || (useRandom ? getRandomLocation() : await getLocation())
       
       try {
         cityName.value = await getCityName(coords.lat, coords.lon)
@@ -362,7 +431,7 @@ async function fetchWeatherData(useRandom = false) {
           loading.value = false
           loadingRandom.value = false
           // Return the result of the retry instead of calling fetchWeatherData directly
-          return await fetchWeatherData(true);
+          return await fetchWeatherData(true, coords);
         } else {
           retryCount = 0;
           throw new Error('Could not find a valid location. Please try again.');
@@ -461,4 +530,19 @@ watch([temperatures, times, weatherCodes, dailyHighs, dailyLows, dailyTimes, cit
     locationDetail: locationDetail.value
   }))
 }, { deep: true })
+
+// Add function to handle manual coordinates
+async function submitCoordinates() {
+  if (!isValidCoords.value) return
+  
+  showCoordInput.value = false
+  await fetchWeatherData(false, {
+    lat: Number(manualLat.value),
+    lon: Number(manualLon.value)
+  })
+  
+  // Reset inputs
+  manualLat.value = ''
+  manualLon.value = ''
+}
 </script> 
