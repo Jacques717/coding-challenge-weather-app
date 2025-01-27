@@ -49,9 +49,10 @@
       <!-- Temperature toggle button -->
       <button 
         @click="isCelsius = !isCelsius"
-        class="absolute top-0 left-0 bg-white/20 hover:bg-white/30 rounded-full p-2 transition-colors"
+        class="absolute top-0 left-0 bg-white/20 hover:bg-white/30 rounded-full p-2 transition-colors w-10 h-10 flex items-center justify-center"
+        title="Toggle temperature unit"
       >
-        {{ isCelsius ? '°C' : '°F' }}
+        <span class="text-lg font-medium">{{ isCelsius ? '°C' : '°F' }}</span>
       </button>
 
       <!-- Random location button -->
