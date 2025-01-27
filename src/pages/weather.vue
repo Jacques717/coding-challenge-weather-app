@@ -331,7 +331,17 @@ function delay(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
 
-// Update fetchWeatherData to include minimum loading time
+// Add this helper function to get current hour index
+function getCurrentHourIndex(timeArray: string[]): number {
+  const now = new Date()
+  return timeArray.findIndex(time => {
+    const timeDate = new Date(time)
+    return timeDate.getHours() === now.getHours() &&
+           timeDate.getDate() === now.getDate()
+  })
+}
+
+// Update fetchWeatherData to slice data from current hour
 async function fetchWeatherData(useRandom = false) {
   try {
     loading.value = true
@@ -372,9 +382,15 @@ async function fetchWeatherData(useRandom = false) {
     // Wait for both the minimum loading time and data fetch to complete
     const [data] = await Promise.all([fetchDataPromise, minimumLoadingTime])
     
-    temperatures.value = data.hourly.temperature_2m
-    times.value = data.hourly.time
-    weatherCodes.value = data.hourly.weathercode
+    // Find current hour index
+    const currentHourIndex = getCurrentHourIndex(data.hourly.time)
+    
+    // Slice arrays to start from current hour
+    temperatures.value = data.hourly.temperature_2m.slice(currentHourIndex)
+    times.value = data.hourly.time.slice(currentHourIndex)
+    weatherCodes.value = data.hourly.weathercode.slice(currentHourIndex)
+    
+    // Daily data doesn't need to be sliced
     dailyHighs.value = data.daily.temperature_2m_max
     dailyLows.value = data.daily.temperature_2m_min
     dailyTimes.value = data.daily.time

@@ -23,7 +23,7 @@ app.get('/api/weather', async (req: Request, res: Response) => {
                 hourly: ['temperature_2m', 'weathercode'],
                 daily: ['temperature_2m_max', 'temperature_2m_min'],
                 //timezone: req.query.timezone || 'auto'
-                timezone: 'CST'
+                timezone: 'EST'
             }
         });
         res.json(response.data);
