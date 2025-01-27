@@ -24,23 +24,28 @@
         <h1 class="text-2xl mb-1">{{ cityName }}</h1>
         <div class="text-sm text-blue-100 mb-4 opacity-80">{{ locationDetail }}</div>
         
-        <!-- Location image -->
-        <div v-if="locationImageUrl" class="relative mb-6 rounded-2xl overflow-hidden shadow-lg">
+        <!-- Location image with overlaid weather info -->
+        <div class="relative mb-6 rounded-2xl overflow-hidden shadow-lg">
           <img 
+            v-if="locationImageUrl"
             :src="locationImageUrl" 
             :alt="cityName"
             class="w-full h-[200px] object-cover"
           />
-          <div class="absolute inset-0 bg-gradient-to-b from-transparent to-black/30"></div>
-        </div>
-
-        <div class="text-8xl font-light mb-4">{{ formatTemp(temperatures[0]) }}°</div>
-        <div class="text-xl">
-          Feels Like: {{ formatTemp(temperatures[0]) }}°
-        </div>
-        <div class="text-lg">
-          H:{{ formatTemp(Math.max(...temperatures)) }}° 
-          L:{{ formatTemp(Math.min(...temperatures)) }}°
+          <!-- Fallback background when no image -->
+          <div v-else class="w-full h-[200px] bg-blue-500/30 backdrop-blur-sm"></div>
+          
+          <!-- Weather info overlay -->
+          <div class="absolute inset-0 bg-gradient-to-b from-black/20 to-black/60 flex flex-col justify-center items-center">
+            <div class="text-8xl font-light mb-2">{{ formatTemp(temperatures[0]) }}°</div>
+            <div class="text-xl mb-1">
+              Feels Like: {{ formatTemp(temperatures[0]) }}°
+            </div>
+            <div class="text-lg">
+              H:{{ formatTemp(Math.max(...temperatures)) }}° 
+              L:{{ formatTemp(Math.min(...temperatures)) }}°
+            </div>
+          </div>
         </div>
       </div>
 
