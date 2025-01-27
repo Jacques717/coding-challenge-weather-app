@@ -48,11 +48,11 @@
     <div v-if="!loading && !error" class="max-w-md mx-auto relative">
       <!-- Temperature toggle button -->
       <button 
-        @click="isCelsius = !isCelsius"
+        @click="tempStore.toggleUnit"
         class="absolute top-0 left-0 bg-white/20 hover:bg-white/30 rounded-full p-2 transition-colors w-10 h-10 flex items-center justify-center"
         title="Toggle temperature unit"
       >
-        <span class="text-lg font-medium">{{ isCelsius ? '°C' : '°F' }}</span>
+        <span class="text-lg font-medium">{{ tempStore.isCelsius ? '°C' : '°F' }}</span>
       </button>
 
       <!-- Random location button -->
@@ -108,13 +108,13 @@
           
           <!-- Weather info overlay -->
           <div class="absolute inset-0 bg-gradient-to-b from-black/20 to-black/60 flex flex-col justify-center items-center">
-            <div class="text-8xl font-light mb-2">{{ formatTemp(temperatures[0]) }}°</div>
+            <div class="text-8xl font-light mb-2">{{ tempStore.formatTemp(temperatures[0]) }}°</div>
             <div class="text-xl mb-1">
-              Feels Like: {{ formatTemp(temperatures[0]) }}°
+              Feels Like: {{ tempStore.formatTemp(temperatures[0]) }}°
             </div>
             <div class="text-lg">
-              H:{{ formatTemp(Math.max(...temperatures)) }}° 
-              L:{{ formatTemp(Math.min(...temperatures)) }}°
+              H:{{ tempStore.formatTemp(Math.max(...temperatures)) }}° 
+              L:{{ tempStore.formatTemp(Math.min(...temperatures)) }}°
             </div>
           </div>
         </div>
@@ -134,7 +134,7 @@
                  class="mb-2"></div>
             <!-- Temperature -->
             <div class="text-2xl">
-              {{ formatTemp(temp) }}°
+              {{ tempStore.formatTemp(temp) }}°
             </div>
           </div>
         </div>
@@ -154,13 +154,13 @@
             <span class="w-12 font-medium">{{ formatDay(dailyTimes[index]) }}</span>
             <div v-html="getWeatherIcon(weatherCodes[index * 24])" class="mx-4"></div>
             <div class="flex-1 flex items-center gap-3">
-              <span class="text-sm w-8">{{ formatTemp(dailyLows[index]) }}°</span>
+              <span class="text-sm w-8">{{ tempStore.formatTemp(dailyLows[index]) }}°</span>
               <div class="flex-1 h-1 rounded-full bg-blue-400/30 relative">
                 <div class="absolute h-1 bg-white rounded-full"
                      :style="`left: ${getTempPercent(dailyLows[index], index)}%; right: ${100 - getTempPercent(dailyHighs[index], index)}%`">
                 </div>
               </div>
-              <span class="text-sm w-8">{{ formatTemp(dailyHighs[index]) }}°</span>
+              <span class="text-sm w-8">{{ tempStore.formatTemp(dailyHighs[index]) }}°</span>
             </div>
           </div>
         </div>
@@ -215,6 +215,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, watch, computed } from 'vue'
+import { useTempUnitStore } from '@/stores/tempUnit'
 
 definePageMeta({
   name: 'weather'
@@ -225,7 +226,6 @@ const error = ref<string | null>(null)
 const temperatures = ref<number[]>([])
 const times = ref<string[]>([])
 const cityName = ref('Loading...')
-const isCelsius = ref(true)
 const weatherCodes = ref<number[]>([])
 const dailyHighs = ref<number[]>([])
 const dailyLows = ref<number[]>([])
@@ -254,147 +254,8 @@ const isValidCoords = computed(() => {
          lon >= -180 && lon <= 180
 })
 
-// Add this function to get random coordinates
-function getRandomLocation() {
-  // Generate random latitude between -60 and 70 (most inhabited areas)
-  const lat = Math.random() * 130 - 60;  // -60 to 70
-  
-  // Generate random longitude between -180 and 180
-  const lon = Math.random() * 360 - 180;  // -180 to 180
-  
-  // Round to 4 decimal places for reasonable precision
-  return {
-    lat: Math.round(lat * 10000) / 10000,
-    lon: Math.round(lon * 10000) / 10000
-  }
-}
-
-async function getLocation(): Promise<{lat: number, lon: number}> {
-  return new Promise((resolve, reject) => {
-    if (!navigator.geolocation) {
-      reject('Geolocation is not supported')
-      return
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        resolve({
-          lat: position.coords.latitude,
-          lon: position.coords.longitude
-        })
-      },
-      (err) => {
-        reject('Please enable location access')
-      }
-    )
-  })
-}
-
-function formatTime(timeString: string): string {
-  return new Date(timeString).toLocaleTimeString('en-US', {
-    hour: 'numeric',
-    hour12: true,
-  }).toUpperCase()
-}
-
-function formatDay(timeString: string): string {
-  return new Date(timeString).toLocaleDateString('en-US', {
-    weekday: 'short',
-  })
-}
-
-async function fetchLocationImage(location: string) {
-  try {
-    // First search for the Wikipedia page
-    const searchResponse = await fetch(
-      `https://en.wikipedia.org/w/api.php?` + 
-      `action=query&format=json&origin=*&list=search&srsearch=${encodeURIComponent(location)}`
-    )
-    const searchData = await searchResponse.json()
-    
-    if (searchData.query.search.length > 0) {
-      const pageId = searchData.query.search[0].pageid
-      
-      // Then get the page images
-      const imageResponse = await fetch(
-        `https://en.wikipedia.org/w/api.php?` +
-        `action=query&format=json&origin=*&prop=pageimages&pithumbsize=500&pageids=${pageId}`
-      )
-      const imageData = await imageResponse.json()
-      
-      const page = imageData.query.pages[pageId]
-      if (page.thumbnail) {
-        locationImageUrl.value = page.thumbnail.source
-      } else {
-        // Try with region if city image not found
-        const region = locationDetail.value.split(',')[0]
-        await fetchLocationImage(region)
-      }
-    }
-  } catch (error) {
-    console.error('Failed to fetch location image:', error)
-    locationImageUrl.value = ''
-  }
-}
-
-async function getCityName(lat: number, lon: number): Promise<string> {
-  const response = await fetch(
-    `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`,
-    {
-      headers: {
-        'User-Agent': 'WeatherApp/1.0'
-      }
-    }
-  )
-  const data = await response.json()
-  
-  locationDetail.value = data.display_name
-    .split(', ')
-    .slice(1)
-    .join(', ')
-  
-  const cityName = data.address.city || 
-                  data.address.town || 
-                  data.address.village || 
-                  data.address.county ||
-                  data.address.municipality ||
-                  'Unknown Location'
-  
-  // Fetch image for the location
-  await fetchLocationImage(cityName + ' ' + data.address.country)
-  
-  return cityName
-}
-
-// Update the weather icons to use animated SVGs from Meteocons
-const weatherIcons = {
-  clear: `<img src="https://bmcdn.nl/assets/weather-icons/v3.0/fill/svg/clear-day.svg" class="w-8 h-8" />`,
-  cloudy: `<img src="https://bmcdn.nl/assets/weather-icons/v3.0/fill/svg/cloudy.svg" class="w-8 h-8" />`,
-  rain: `<img src="https://bmcdn.nl/assets/weather-icons/v3.0/fill/svg/rain.svg" class="w-8 h-8" />`,
-  snow: `<img src="https://bmcdn.nl/assets/weather-icons/v3.0/fill/svg/snow.svg" class="w-8 h-8" />`,
-  thunderstorm: `<img src="https://bmcdn.nl/assets/weather-icons/v3.0/fill/svg/thunderstorms-rain.svg" class="w-8 h-8" />`
-}
-
-// Add this helper function
-function getWeatherIcon(code: number): string {
-  // WMO Weather interpretation codes
-  switch (true) {
-    case code === 0: // Clear sky
-      return weatherIcons.clear
-    case code >= 1 && code <= 3: // Partly cloudy
-      return weatherIcons.cloudy
-    case code >= 51 && code <= 67: // Drizzle and Rain
-    case code >= 80 && code <= 82: // Rain showers
-      return weatherIcons.rain
-    case code >= 71 && code <= 77: // Snow
-    case code >= 85 && code <= 86: // Snow showers
-      return weatherIcons.snow
-    case code >= 95 && code <= 99: // Thunderstorm
-      return weatherIcons.thunderstorm
-    default: // Cloudy, fog, etc
-      return weatherIcons.cloudy
-  }
-}
+// Get the temperature store
+const tempStore = useTempUnitStore()
 
 // Add a delay helper function
 function delay(ms: number): Promise<void> {
@@ -494,12 +355,131 @@ async function fetchWeatherData(useRandom = false, manualCoords?: {lat: number, 
   }
 }
 
-function convertToFahrenheit(celsius: number): number {
-  return Math.round((celsius * 9/5) + 32)
+function formatTime(timeString: string): string {
+  return new Date(timeString).toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    hour12: true,
+  }).toUpperCase()
 }
 
-function formatTemp(temp: number): number {
-  return isCelsius.value ? Math.round(temp) : convertToFahrenheit(temp)
+function formatDay(timeString: string): string {
+  return new Date(timeString).toLocaleDateString('en-US', {
+    weekday: 'short',
+  })
+}
+
+async function getLocation(): Promise<{lat: number, lon: number}> {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject('Geolocation is not supported')
+      return
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        resolve({
+          lat: position.coords.latitude,
+          lon: position.coords.longitude
+        })
+      },
+      (err) => {
+        reject('Please enable location access')
+      }
+    )
+  })
+}
+
+async function fetchLocationImage(location: string) {
+  try {
+    // First search for the Wikipedia page
+    const searchResponse = await fetch(
+      `https://en.wikipedia.org/w/api.php?` + 
+      `action=query&format=json&origin=*&list=search&srsearch=${encodeURIComponent(location)}`
+    )
+    const searchData = await searchResponse.json()
+    
+    if (searchData.query.search.length > 0) {
+      const pageId = searchData.query.search[0].pageid
+      
+      // Then get the page images
+      const imageResponse = await fetch(
+        `https://en.wikipedia.org/w/api.php?` +
+        `action=query&format=json&origin=*&prop=pageimages&pithumbsize=500&pageids=${pageId}`
+      )
+      const imageData = await imageResponse.json()
+      
+      const page = imageData.query.pages[pageId]
+      if (page.thumbnail) {
+        locationImageUrl.value = page.thumbnail.source
+      } else {
+        // Try with region if city image not found
+        const region = locationDetail.value.split(',')[0]
+        await fetchLocationImage(region)
+      }
+    }
+  } catch (error) {
+    console.error('Failed to fetch location image:', error)
+    locationImageUrl.value = ''
+  }
+}
+
+async function getCityName(lat: number, lon: number): Promise<string> {
+  const response = await fetch(
+    `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`,
+    {
+      headers: {
+        'User-Agent': 'WeatherApp/1.0'
+      }
+    }
+  )
+  const data = await response.json()
+  
+  locationDetail.value = data.display_name
+    .split(', ')
+    .slice(1)
+    .join(', ')
+  
+  const cityName = data.address.city || 
+                  data.address.town || 
+                  data.address.village || 
+                  data.address.county ||
+                  data.address.municipality ||
+                  'Unknown Location'
+  
+  // Fetch image for the location
+  await fetchLocationImage(cityName + ' ' + data.address.country)
+  
+  return cityName
+}
+
+// Update the weather icons to use animated SVGs from Meteocons
+const weatherIcons = {
+  clear: `<img src="https://bmcdn.nl/assets/weather-icons/v3.0/fill/svg/clear-day.svg" class="w-8 h-8" />`,
+  cloudy: `<img src="https://bmcdn.nl/assets/weather-icons/v3.0/fill/svg/cloudy.svg" class="w-8 h-8" />`,
+  rain: `<img src="https://bmcdn.nl/assets/weather-icons/v3.0/fill/svg/rain.svg" class="w-8 h-8" />`,
+  snow: `<img src="https://bmcdn.nl/assets/weather-icons/v3.0/fill/svg/snow.svg" class="w-8 h-8" />`,
+  thunderstorm: `<img src="https://bmcdn.nl/assets/weather-icons/v3.0/fill/svg/thunderstorms-rain.svg" class="w-8 h-8" />`
+}
+
+// Add this helper function
+function getWeatherIcon(code: number): string {
+  // WMO Weather interpretation codes
+  switch (true) {
+    case code === 0: // Clear sky
+      return weatherIcons.clear
+    case code >= 1 && code <= 3: // Partly cloudy
+      return weatherIcons.cloudy
+    case code >= 51 && code <= 67: // Drizzle and Rain
+    case code >= 80 && code <= 82: // Rain showers
+      return weatherIcons.rain
+    case code >= 71 && code <= 77: // Snow
+    case code >= 85 && code <= 86: // Snow showers
+      return weatherIcons.snow
+    case code >= 95 && code <= 99: // Thunderstorm
+      return weatherIcons.thunderstorm
+    default: // Cloudy, fog, etc
+      return weatherIcons.cloudy
+  }
 }
 
 // Add this function to calculate temperature percentage for the scale
@@ -529,7 +509,6 @@ onMounted(async () => {
       cityName.value = data.cityName
       locationDetail.value = data.locationDetail
       locationImageUrl.value = data.locationImageUrl
-      isCelsius.value = data.isCelsius ?? true
       
       // If we have cached data, show it immediately
       loading.value = false
@@ -550,8 +529,7 @@ onMounted(async () => {
 watch([
   temperatures, times, weatherCodes, 
   dailyHighs, dailyLows, dailyTimes, 
-  cityName, locationDetail, locationImageUrl,
-  isCelsius
+  cityName, locationDetail, locationImageUrl
 ], () => {
   localStorage.setItem(STORAGE_KEY, JSON.stringify({
     temperatures: temperatures.value,
@@ -562,8 +540,7 @@ watch([
     dailyTimes: dailyTimes.value,
     cityName: cityName.value,
     locationDetail: locationDetail.value,
-    locationImageUrl: locationImageUrl.value,
-    isCelsius: isCelsius.value
+    locationImageUrl: locationImageUrl.value
   }))
 }, { deep: true })
 
@@ -580,5 +557,20 @@ async function submitCoordinates() {
   // Reset inputs
   manualLat.value = ''
   manualLon.value = ''
+}
+
+// Add this function to get random coordinates
+function getRandomLocation() {
+  // Generate random latitude between -60 and 70 (most inhabited areas)
+  const lat = Math.random() * 130 - 60;  // -60 to 70
+  
+  // Generate random longitude between -180 and 180
+  const lon = Math.random() * 360 - 180;  // -180 to 180
+  
+  // Round to 4 decimal places for reasonable precision
+  return {
+    lat: Math.round(lat * 10000) / 10000,
+    lon: Math.round(lon * 10000) / 10000
+  }
 }
 </script> 
