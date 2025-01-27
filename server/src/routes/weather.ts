@@ -17,7 +17,8 @@ router.get('/weather', async (req: Request, res: Response) => {
     const data = await weatherService.getWeatherData(
       Number(latitude),
       Number(longitude),
-      String(timezone || 'auto')
+      // String(timezone || 'auto')
+      String('auto')
     );
 
     res.json(data);
