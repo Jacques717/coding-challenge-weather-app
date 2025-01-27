@@ -1,7 +1,38 @@
 <template>
   <div class="min-h-screen bg-gradient-to-b from-blue-400 to-blue-600 p-6 text-white">
-    <div class="max-w-md mx-auto relative">
-      <!-- Add temperature toggle button -->
+    <!-- Loading State -->
+    <div v-if="loading" class="max-w-md mx-auto text-center py-8">
+      <div class="mb-4">
+        <img 
+          src="https://bmcdn.nl/assets/weather-icons/v3.0/fill/svg/wind.svg" 
+          class="w-16 h-16 mx-auto"
+          alt="Loading..."
+        />
+      </div>
+      <div class="text-xl font-medium">
+        Loading weather data...
+      </div>
+    </div>
+
+    <!-- Error State with Refresh Button -->
+    <div v-if="error" class="max-w-md mx-auto text-center">
+      <div class="py-8 text-xl font-medium text-red-200">
+        {{ error }}
+      </div>
+      <button 
+        @click="fetchWeatherData(true)"
+        class="bg-white/20 hover:bg-white/30 rounded-full p-4 transition-colors inline-flex items-center gap-2"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
+        Try Another Location
+      </button>
+    </div>
+
+    <!-- Main Content -->
+    <div v-if="!loading && !error" class="max-w-md mx-auto relative">
+      <!-- Temperature toggle button -->
       <button 
         @click="isCelsius = !isCelsius"
         class="absolute top-0 left-0 bg-white/20 hover:bg-white/30 rounded-full p-2 transition-colors"
@@ -9,12 +40,26 @@
         {{ isCelsius ? '°C' : '°F' }}
       </button>
 
-      <!-- Add this button at the top -->
+      <!-- Random location button -->
       <button 
         @click="fetchWeatherData(true)"
         class="absolute top-0 right-0 bg-white/20 hover:bg-white/30 rounded-full p-2 transition-colors"
+        :disabled="loadingRandom"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <img 
+          v-if="loadingRandom"
+          src="https://bmcdn.nl/assets/weather-icons/v3.0/fill/svg/wind.svg" 
+          class="w-6 h-6"
+          alt="Loading..."
+        />
+        <svg 
+          v-else
+          xmlns="http://www.w3.org/2000/svg" 
+          class="h-6 w-6" 
+          fill="none" 
+          viewBox="0 0 24 24" 
+          stroke="currentColor"
+        >
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
         </svg>
       </button>
@@ -51,11 +96,20 @@
 
       <!-- Hourly Forecast -->
       <div class="bg-blue-500/30 backdrop-blur-sm rounded-3xl p-6 mb-6">
-        <div class="grid grid-cols-6 gap-4 text-center">
-          <div v-for="(temp, index) in temperatures.slice(0, 6)" :key="index" class="space-y-2">
-            <div class="text-sm font-medium">{{ index === 0 ? 'Now' : formatTime(times[index]) }}</div>
-            <div v-html="getWeatherIcon(weatherCodes[index])" class="mx-auto"></div>
-            <div class="text-2xl font-light">{{ formatTemp(temp) }}°</div>
+        <div class="grid grid-cols-6 gap-4">
+          <div v-for="(temp, index) in temperatures.slice(0, 6)" :key="index" 
+               class="flex flex-col items-center">
+            <!-- Time -->
+            <div class="text-base font-medium mb-2">
+              {{ index === 0 ? 'Now' : formatTime(times[index]) }}
+            </div>
+            <!-- Weather Icon -->
+            <div v-html="getWeatherIcon(weatherCodes[index])" 
+                 class="mb-2"></div>
+            <!-- Temperature -->
+            <div class="text-2xl">
+              {{ formatTemp(temp) }}°
+            </div>
           </div>
         </div>
       </div>
@@ -86,14 +140,6 @@
         </div>
       </div>
     </div>
-
-    <!-- Loading and Error States -->
-    <div v-if="loading" class="text-center py-12">
-      Loading weather data...
-    </div>
-    <div v-if="error" class="text-center py-12 text-red-200">
-      {{ error }}
-    </div>
   </div>
 </template>
 
@@ -120,6 +166,9 @@ const locationImageUrl = ref('')
 // Add a retry counter
 let retryCount = 0;
 const MAX_RETRIES = 3;
+
+// Add new ref for random loading state
+const loadingRandom = ref(false)
 
 // Add this function to get random coordinates
 function getRandomLocation() {
@@ -267,6 +316,7 @@ function getWeatherIcon(code: number): string {
 async function fetchWeatherData(useRandom = false) {
   try {
     loading.value = true
+    if (useRandom) loadingRandom.value = true
     error.value = null
     
     const coords = useRandom ? getRandomLocation() : await getLocation()
@@ -308,6 +358,7 @@ async function fetchWeatherData(useRandom = false) {
     console.error(err)
   } finally {
     loading.value = false
+    loadingRandom.value = false
   }
 }
 
