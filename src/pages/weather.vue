@@ -326,47 +326,59 @@ function getWeatherIcon(code: number): string {
   }
 }
 
-// Update fetchWeatherData to handle retries
+// Add a delay helper function
+function delay(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+// Update fetchWeatherData to include minimum loading time
 async function fetchWeatherData(useRandom = false) {
   try {
     loading.value = true
     if (useRandom) loadingRandom.value = true
     error.value = null
     
-    const coords = useRandom ? getRandomLocation() : await getLocation()
+    // Create a minimum loading time of 1 second
+    const minimumLoadingTime = delay(1000)
     
-    try {
-      cityName.value = await getCityName(coords.lat, coords.lon)
-    } catch (geocodeError) {
-      // If we get a geocoding error and we're using random coordinates
-      if (useRandom && retryCount < MAX_RETRIES) {
-        retryCount++;
-        console.log(`Retry attempt ${retryCount} of ${MAX_RETRIES}`);
-        return fetchWeatherData(true); // Try again with new random coordinates
-      } else {
-        retryCount = 0; // Reset counter
-        throw new Error('Could not find a valid location. Please try again.');
+    // Fetch data
+    const fetchDataPromise = (async () => {
+      const coords = useRandom ? getRandomLocation() : await getLocation()
+      
+      try {
+        cityName.value = await getCityName(coords.lat, coords.lon)
+      } catch (geocodeError) {
+        if (useRandom && retryCount < MAX_RETRIES) {
+          retryCount++;
+          console.log(`Retry attempt ${retryCount} of ${MAX_RETRIES}`);
+          return fetchWeatherData(true);
+        } else {
+          retryCount = 0;
+          throw new Error('Could not find a valid location. Please try again.');
+        }
       }
-    }
+      
+      retryCount = 0;
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone
+      
+      const response = await fetch(
+        `http://localhost:3001/api/weather?latitude=${coords.lat}&longitude=${coords.lon}&timezone=${timezone}`
+      )
+      if (!response.ok) throw new Error('Failed to fetch weather data')
+      
+      return await response.json()
+    })()
+
+    // Wait for both the minimum loading time and data fetch to complete
+    const [data] = await Promise.all([fetchDataPromise, minimumLoadingTime])
     
-    // Reset retry counter on success
-    retryCount = 0;
-    
-    // Get local timezone
-    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone
-    
-    const response = await fetch(
-      `http://localhost:3001/api/weather?latitude=${coords.lat}&longitude=${coords.lon}&timezone=${timezone}`
-    )
-    if (!response.ok) throw new Error('Failed to fetch weather data')
-    
-    const data = await response.json()
     temperatures.value = data.hourly.temperature_2m
     times.value = data.hourly.time
     weatherCodes.value = data.hourly.weathercode
     dailyHighs.value = data.daily.temperature_2m_max
     dailyLows.value = data.daily.temperature_2m_min
     dailyTimes.value = data.daily.time
+    
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Error loading weather data'
     console.error(err)
