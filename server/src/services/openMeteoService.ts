@@ -2,36 +2,27 @@ import { BaseWeatherService } from './baseWeatherService.ts';
 import { WeatherResponse } from '../types/weather.ts';
 
 export class OpenMeteoService extends BaseWeatherService {
-  private retryCount = 0;
   private readonly MAX_RETRIES = 3;
+  private readonly RETRY_DELAY = 1000; // 1 second
 
-  async getWeatherData(lat: number, lon: number, timezone: string): Promise<WeatherResponse> {
-    try {
-      return await super.getWeatherData(lat, lon, timezone);
-    } catch (error) {
-      if (this.retryCount < this.MAX_RETRIES) {
-        this.retryCount++;
-        console.log(`Retry attempt ${this.retryCount} of ${this.MAX_RETRIES}`);
-        
-        // Generate new random coordinates for retry
-        const newCoords = this.getRandomLocation();
-        return this.getWeatherData(newCoords.lat, newCoords.lon, timezone);
-      }
-      this.retryCount = 0;
-      throw error;
-    }
-  }
-
-  public getRandomLocation() {
-    // Generate random latitude between -60 and 70 (most inhabited areas)
-    const lat = Math.random() * 130 - 60;
-    // Generate random longitude between -180 and 180
-    const lon = Math.random() * 360 - 180;
+  protected async fetchWeatherData(url: string, params: object): Promise<any> {
+    let lastError;
     
-    return {
-      lat: Math.round(lat * 10000) / 10000,
-      lon: Math.round(lon * 10000) / 10000
-    };
+    for (let attempt = 1; attempt <= this.MAX_RETRIES; attempt++) {
+      try {
+        const response = await super.fetchWeatherData(url, params);
+        return response;
+      } catch (error) {
+        lastError = error;
+        console.log(`Weather API attempt ${attempt} failed, retrying...`);
+        
+        if (attempt < this.MAX_RETRIES) {
+          await new Promise(resolve => setTimeout(resolve, this.RETRY_DELAY));
+        }
+      }
+    }
+    
+    throw lastError;
   }
 
   protected getEndpoint(): string {
@@ -43,6 +34,15 @@ export class OpenMeteoService extends BaseWeatherService {
       hourly: ['temperature_2m', 'weathercode'],
       daily: ['temperature_2m_max', 'temperature_2m_min'],
       timezone,
+    };
+  }
+
+  public getRandomLocation() {
+    const lat = Math.random() * 130 - 60;  // -60 to 70
+    const lon = Math.random() * 360 - 180;  // -180 to 180
+    return {
+      lat: Math.round(lat * 10000) / 10000,
+      lon: Math.round(lon * 10000) / 10000
     };
   }
 
