@@ -501,25 +501,45 @@ function getTempPercent(temp: number, dayIndex: number): number {
 // Add local storage functionality
 const STORAGE_KEY = 'weather-app-data'
 
-// Load saved data on mount
+// Update onMounted function
 onMounted(async () => {
-  const saved = localStorage.getItem(STORAGE_KEY)
-  if (saved) {
-    const data = JSON.parse(saved)
-    temperatures.value = data.temperatures
-    times.value = data.times
-    weatherCodes.value = data.weatherCodes
-    dailyHighs.value = data.dailyHighs
-    dailyLows.value = data.dailyLows
-    dailyTimes.value = data.dailyTimes
-    cityName.value = data.cityName
-    locationDetail.value = data.locationDetail
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY)
+    if (saved) {
+      const data = JSON.parse(saved)
+      temperatures.value = data.temperatures
+      times.value = data.times
+      weatherCodes.value = data.weatherCodes
+      dailyHighs.value = data.dailyHighs
+      dailyLows.value = data.dailyLows
+      dailyTimes.value = data.dailyTimes
+      cityName.value = data.cityName
+      locationDetail.value = data.locationDetail
+      locationImageUrl.value = data.locationImageUrl
+      isCelsius.value = data.isCelsius ?? true
+      
+      // If we have cached data, show it immediately
+      loading.value = false
+    }
+
+    // Try to fetch fresh data
+    await fetchWeatherData()
+  } catch (err) {
+    // If fetch fails but we have cached data, don't show error
+    if (!temperatures.value.length) {
+      error.value = err instanceof Error ? err.message : 'Error loading weather data'
+    }
+    loading.value = false
   }
-  await fetchWeatherData()
 })
 
-// Save data when it changes
-watch([temperatures, times, weatherCodes, dailyHighs, dailyLows, dailyTimes, cityName, locationDetail], () => {
+// Update the watch to save more data
+watch([
+  temperatures, times, weatherCodes, 
+  dailyHighs, dailyLows, dailyTimes, 
+  cityName, locationDetail, locationImageUrl,
+  isCelsius
+], () => {
   localStorage.setItem(STORAGE_KEY, JSON.stringify({
     temperatures: temperatures.value,
     times: times.value,
@@ -528,7 +548,9 @@ watch([temperatures, times, weatherCodes, dailyHighs, dailyLows, dailyTimes, cit
     dailyLows: dailyLows.value,
     dailyTimes: dailyTimes.value,
     cityName: cityName.value,
-    locationDetail: locationDetail.value
+    locationDetail: locationDetail.value,
+    locationImageUrl: locationImageUrl.value,
+    isCelsius: isCelsius.value
   }))
 }, { deep: true })
 
