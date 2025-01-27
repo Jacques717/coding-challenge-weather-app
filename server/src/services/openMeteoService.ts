@@ -22,7 +22,7 @@ export class OpenMeteoService extends BaseWeatherService {
     }
   }
 
-  private getRandomLocation() {
+  public getRandomLocation() {
     // Generate random latitude between -60 and 70 (most inhabited areas)
     const lat = Math.random() * 130 - 60;
     // Generate random longitude between -180 and 180
