@@ -411,10 +411,14 @@ function getCurrentHourIndex(timeArray: string[]): number {
   })
 }
 
-// Update fetchWeatherData to properly handle retries
+// Update fetchWeatherData function
 async function fetchWeatherData(useRandom = false, manualCoords?: {lat: number, lon: number}) {
   try {
-    loading.value = true
+    // Don't set loading to true if we have cached data
+    const hasCache = temperatures.value.length > 0
+    if (!hasCache) {
+      loading.value = true
+    }
     if (useRandom) loadingRandom.value = true
     error.value = null
     
@@ -431,49 +435,58 @@ async function fetchWeatherData(useRandom = false, manualCoords?: {lat: number, 
           console.log(`Retry attempt ${retryCount} of ${MAX_RETRIES}`);
           loading.value = false
           loadingRandom.value = false
-          // Return the result of the retry instead of calling fetchWeatherData directly
           return await fetchWeatherData(true, coords);
         } else {
           retryCount = 0;
-          throw new Error('Could not find a valid location. Please try again.');
+          if (!hasCache) {  // Only throw if we don't have cached data
+            throw new Error('Could not find a valid location. Please try again.');
+          }
+          return null;  // Return null to indicate we should keep using cached data
         }
       }
       
       retryCount = 0;
       const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone
       
-      const response = await fetch(
-        `http://localhost:3001/api/weather?latitude=${coords.lat}&longitude=${coords.lon}&timezone=${timezone}`
-      )
-      if (!response.ok) throw new Error('Failed to fetch weather data')
-      
-      const data = await response.json()
-      // Validate that we have the required data
-      if (!data?.hourly?.time || !data?.hourly?.temperature_2m || !data?.hourly?.weathercode) {
-        throw new Error('Invalid weather data received');
+      try {
+        const response = await fetch(
+          `http://localhost:3001/api/weather?latitude=${coords.lat}&longitude=${coords.lon}&timezone=${timezone}`
+        )
+        if (!response.ok) throw new Error('Failed to fetch weather data')
+        
+        const data = await response.json()
+        if (!data?.hourly?.time || !data?.hourly?.temperature_2m || !data?.hourly?.weathercode) {
+          throw new Error('Invalid weather data received');
+        }
+        
+        return data
+      } catch (networkError) {
+        if (!hasCache) {  // Only throw if we don't have cached data
+          throw networkError;
+        }
+        return null;  // Return null to indicate we should keep using cached data
       }
-      
-      return data
     })()
 
-    // Wait for both the minimum loading time and data fetch to complete
     const [data] = await Promise.all([fetchDataPromise, minimumLoadingTime])
     
-    // Only proceed if we have valid data
+    // Only update data if we got a valid response
     if (data && data.hourly) {
       const currentHourIndex = getCurrentHourIndex(data.hourly.time)
       
       temperatures.value = data.hourly.temperature_2m.slice(currentHourIndex)
       times.value = data.hourly.time.slice(currentHourIndex)
       weatherCodes.value = data.hourly.weathercode.slice(currentHourIndex)
-      
       dailyHighs.value = data.daily.temperature_2m_max
       dailyLows.value = data.daily.temperature_2m_min
       dailyTimes.value = data.daily.time
     }
+    // If data is null, we keep using the cached data
     
   } catch (err) {
-    error.value = err instanceof Error ? err.message : 'Error loading weather data'
+    if (!temperatures.value.length) {  // Only show error if we don't have cached data
+      error.value = err instanceof Error ? err.message : 'Error loading weather data'
+    }
     console.error(err)
   } finally {
     loading.value = false
