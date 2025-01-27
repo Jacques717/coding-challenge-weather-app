@@ -1,13 +1,24 @@
 import { defineStore } from 'pinia'
+import { useCookie } from '#app'
 
 export const useTempUnitStore = defineStore('tempUnit', {
-  state: () => ({
-    isCelsius: true
-  }),
+  state: () => {
+    // Use Nuxt's cookie helper with a default value
+    const unitPreference = useCookie('temp-unit', {
+      default: () => 'C',
+      watch: true
+    })
+    return {
+      isCelsius: unitPreference.value === 'C'
+    }
+  },
 
   actions: {
     toggleUnit() {
       this.isCelsius = !this.isCelsius
+      // Update the cookie
+      const unitPreference = useCookie('temp-unit')
+      unitPreference.value = this.isCelsius ? 'C' : 'F'
     }
   },
 
